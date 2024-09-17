@@ -102,3 +102,24 @@ def process_lorry_run(file):
 
 # Streamlit App Interface
 st.title("Lorry Run Details Cleaner")
+
+
+# File uploader for LorryRunDetails CSV
+uploaded_file = st.file_uploader("Upload the LorryRunDetails CSV", type="csv")
+
+if uploaded_file is not None:
+    # Process the file
+    cleaned_data = process_lorry_run(uploaded_file)
+
+    if cleaned_data is not None:
+        # Show the cleaned data in the app
+        st.write("Cleaned Data Preview:")
+        st.dataframe(cleaned_data)
+
+        # Provide a download button for the cleaned CSV
+        st.download_button(
+            label="Download Cleaned CSV",
+            data=cleaned_data.to_csv(index=False),
+            file_name="Cleaned_LorryRunDetails.csv",
+            mime="text/csv"
+        )
