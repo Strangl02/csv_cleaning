@@ -35,13 +35,33 @@ def process_lorry_run(file):
         output_df = output_df.drop_duplicates(subset='Stop Name')
 
         # Modify 'Route Name': Add 'Run:' at the start and remove '.0' from numbers
-        output_df['Route Name'] = 'Run: ' + output_df['Route Name'].astype(str).str.replace('.0', '', regex=False)
+        output_df['Route Name'] = 'Run ' + output_df['Route Name'].astype(str).str.replace('.0', ':', regex=False)
 
         # Default Stop Departure Time
         stop_departure_time = datetime.now().strftime("%m/%d/%y 4:00")
 
         # Initialize an empty DataFrame to hold the final output
         final_df = pd.DataFrame()
+
+        # Helper function to determine depot based on route number
+        def get_depot(route_name):
+            try:
+                # Extract number from route name
+                route_number = int(route_name.split()[1].replace(':', ''))
+                if 1 <= route_number <= 60:
+                    return 'Bradford Depot'
+                elif 90 <= route_number <= 110:
+                    return 'Slough Depot'
+                elif 150 <= route_number <= 170:
+                    return 'Widnes Depot'
+                elif 180 <= route_number <= 190:
+                    return 'Leamington Spa Depot'
+                elif 200 <= route_number <= 225:
+                    return 'Cramlington Depot'
+                return None
+            except (ValueError, IndexError):
+                # Return None if the route number is invalid
+                return None
 
         # Iterate over each unique route
         for route in output_df['Route Name'].unique():
@@ -51,16 +71,23 @@ def process_lorry_run(file):
             # Get the driver username for this route
             driver_username = route_data['Assigned Driver Username'].iloc[0]
 
-            # Create the Bradford Depot rows
+            # Get the appropriate depot for the route
+            depot_name = get_depot(route)
+
+            if depot_name is None:
+                # Skip routes that don't belong to the specified depots
+                continue
+
+            # Create the start and end rows for the depot
             start_row = pd.DataFrame({
                 'Route Name': [route],
                 'Assigned Driver Username': [driver_username],
                 'Assigned Vehicle Name': [""],
-                'Stop Name': ["Bradford Depot"],
+                'Stop Name': [depot_name],
                 'Stop Arrival Time': "",  # Empty arrival time
                 'Stop Departure Time': stop_departure_time,  # Only the first has departure time
                 'Stop Notes': [""],
-                'Address Name': ["Bradford Depot"],
+                'Address Name': [depot_name],
                 'Full Address': [""],
                 'Latitude': [""],
                 'Longitude': [""]
@@ -70,29 +97,29 @@ def process_lorry_run(file):
                 'Route Name': [route],
                 'Assigned Driver Username': [driver_username],
                 'Assigned Vehicle Name': [""],
-                'Stop Name': ["Bradford Depot"],
+                'Stop Name': [depot_name],
                 'Stop Arrival Time': "",  # Empty arrival time
                 'Stop Departure Time': "",  # Leave blank for the end row
                 'Stop Notes': [""],
-                'Address Name': ["Bradford Depot"],
+                'Address Name': [depot_name],
                 'Full Address': [""],
                 'Latitude': [""],
                 'Longitude': [""]
             })
 
             # Append the start row, route data, and end row
-            route_with_bradford = pd.concat([start_row, route_data, end_row], ignore_index=True)
+            route_with_depot = pd.concat([start_row, route_data, end_row], ignore_index=True)
 
             # Ensure Address Name is correctly set for all rows
-            route_with_bradford['Address Name'] = route_with_bradford['Address Name'].fillna(route_with_bradford['Stop Name'])
+            route_with_depot['Address Name'] = route_with_depot['Address Name'].fillna(route_with_depot['Stop Name'])
 
             # Reorder columns to ensure 'Stop Arrival Time' is before 'Stop Departure Time'
-            route_with_bradford = route_with_bradford[['Route Name', 'Assigned Driver Username', 'Assigned Vehicle Name',
+            route_with_depot = route_with_depot[['Route Name', 'Assigned Driver Username', 'Assigned Vehicle Name',
                                                    'Stop Name', 'Stop Arrival Time', 'Stop Departure Time',
                                                    'Stop Notes', 'Address Name', 'Full Address', 'Latitude', 'Longitude']]
 
             # Append to final DataFrame
-            final_df = pd.concat([final_df, route_with_bradford], ignore_index=True)
+            final_df = pd.concat([final_df, route_with_depot], ignore_index=True)
 
         return final_df
 
@@ -102,7 +129,6 @@ def process_lorry_run(file):
 
 # Streamlit App Interface
 st.title("Lorry Run Details Cleaner")
-
 
 # File uploader for LorryRunDetails CSV
 uploaded_file = st.file_uploader("Upload the LorryRunDetails CSV", type="csv")
